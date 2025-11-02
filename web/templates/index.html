@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pack Calculator</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+    <style>
+        body {
+            background-color: #f8f9fa;
+            padding-top: 20px;
+            padding-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>Pack Calculator</h1>
+            <a href="/docs" class="btn btn-outline-primary">API Documentation</a>
+        </div>
+
+        {{ if .error }}
+        <div class="alert alert-danger" role="alert">
+            <strong>Error:</strong> {{ .error }}
+        </div>
+        {{ end }}
+
+        {{ if .success }}
+        <div class="alert alert-success" role="alert">
+            <strong>Success:</strong> {{ .success }}
+        </div>
+        {{ end }}
+
+        <div class="row">
+            <div class="col-md-6 mb-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Pack Sizes Configuration</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-info">
+                            <small>
+                                <ul class="mb-0">
+                                    <li>Add pack sizes (e.g., 250, 500, 1000)</li>
+                                    <li>Must have at least 1 pack size</li>
+                                    <li>Only positive numbers allowed</li>
+                                </ul>
+                            </small>
+                        </div>
+
+                        <form id="packSizesForm" method="POST" action="/pack-sizes">
+                            <div id="packSizesList" class="mb-3">
+                                {{ if .pack_sizes }}
+                                    {{ range .pack_sizes }}
+                                    <div class="input-group mb-2">
+                                        <input type="number" name="pack_size" class="form-control" value="{{ . }}" min="1" required>
+                                        <button type="button" class="btn btn-outline-danger" onclick="removePackSize(this)">Remove</button>
+                                    </div>
+                                    {{ end }}
+                                {{ else }}
+                                    <div class="text-center text-muted py-4">
+                                        <p>No pack sizes configured yet.</p>
+                                        <p class="small">Click "Add Pack Size" to get started</p>
+                                    </div>
+                                {{ end }}
+                            </div>
+
+                            <button type="button" class="btn btn-success w-100 mb-2" onclick="addPackSize()">Add Pack Size</button>
+                            <button type="submit" class="btn btn-primary w-100">Save Pack Sizes</button>
+                        </form>
+
+                        {{ if .pack_sizes }}
+                        <div class="mt-3">
+                            <strong>Current Pack Sizes:</strong>
+                            <div class="mt-2">
+                                {{ range .pack_sizes }}
+                                <span class="badge bg-secondary me-1">{{ . }}</span>
+                                {{ end }}
+                            </div>
+                        </div>
+                        {{ end }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6 mb-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Calculate Order</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-secondary">
+                            <strong>Rules:</strong>
+                            <ol class="mb-0 small">
+                                <li>Only whole packs (no breaking)</li>
+                                <li>Minimize total items (priority)</li>
+                                <li>Minimize number of packs</li>
+                            </ol>
+                        </div>
+
+                        {{ if not .pack_sizes }}
+                        <div class="alert alert-warning">
+                            Please configure at least one pack size before calculating.
+                        </div>
+                        {{ end }}
+
+                        <form method="POST" action="/calculate">
+                            <div class="mb-3">
+                                <label for="quantity" class="form-label">Quantity to Order:</label>
+                                <input
+                                    type="number"
+                                    class="form-control"
+                                    id="quantity"
+                                    name="quantity"
+                                    placeholder="e.g., 251, 501, 12001"
+                                    min="1"
+                                    {{ if .quantity }}value="{{ .quantity }}"{{ end }}
+                                    {{ if not .pack_sizes }}disabled{{ end }}
+                                    required
+                                >
+                            </div>
+
+                            <button
+                                type="submit"
+                                class="btn btn-primary w-100"
+                                {{ if not .pack_sizes }}disabled{{ end }}
+                            >
+                                {{ if .pack_sizes }}
+                                    Calculate
+                                {{ else }}
+                                    Configure Pack Sizes First
+                                {{ end }}
+                            </button>
+                        </form>
+
+                        {{ if .result }}
+                        <div class="mt-4">
+                            <h6>Calculation Result</h6>
+                            <div class="row text-center mb-3">
+                                <div class="col">
+                                    <div class="border rounded p-2 bg-warning">
+                                        <div class="h4 mb-0">{{ .result.Quantity }}</div>
+                                        <small class="text-muted">Requested</small>
+                                    </div>
+                                </div>
+                                <div class="col">
+                                    <div class="border rounded p-2 bg-info">
+                                        <div class="h4 mb-0">{{ .result.TotalItems }}</div>
+                                        <small class="text-muted">To Ship</small>
+                                    </div>
+                                </div>
+                                <div class="col">
+                                    <div class="border rounded p-2 bg-success text-white">
+                                        <div class="h4 mb-0">{{ .result.TotalPacks }}</div>
+                                        <small class="text-muted" style="color:#FFF !important;">Packs</small>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="table-responsive">
+                                <table class="table table-sm">
+                                    <thead>
+                                        <tr>
+                                            <th>Pack Size</th>
+                                            <th>Quantity</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {{ range $size, $count := .result.PackBreakdown }}
+                                        <tr>
+                                            <td>{{ $size }} items</td>
+                                            <td>{{ $count }}</td>
+                                        </tr>
+                                        {{ end }}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        {{ end }}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        $(document).ready(function() {
+            // Add pack size
+            window.addPackSize = function() {
+                const $list = $('#packSizesList');
+                const $emptyState = $list.find('.text-center.text-muted');
+
+                if ($emptyState.length) {
+                    $emptyState.remove();
+                }
+
+                const $newItem = $('<div class="input-group mb-2">').html(`
+                    <input type="number" name="pack_size" class="form-control" placeholder="Enter pack size" min="1" required>
+                    <button type="button" class="btn btn-outline-danger" onclick="removePackSize(this)">Remove</button>
+                `);
+
+                $list.append($newItem);
+                $newItem.find('input').focus();
+            };
+
+            // Remove pack size
+            window.removePackSize = function(button) {
+                const $list = $('#packSizesList');
+                $(button).closest('.input-group').remove();
+
+                if ($list.children().length === 0) {
+                    $list.html(`
+                        <div class="text-center text-muted py-4">
+                            <p>No pack sizes configured yet.</p>
+                            <p class="small">Click "Add Pack Size" to get started</p>
+                        </div>
+                    `);
+                }
+            };
+
+            // Form validation
+            $('#packSizesForm').on('submit', function(e) {
+                const $inputs = $(this).find('input[name="pack_size"]');
+                const hasEmptyState = $('.text-center.text-muted').length > 0;
+
+                if ($inputs.length === 0 || hasEmptyState) {
+                    e.preventDefault();
+                    alert('Please add at least one pack size before saving.');
+                    return false;
+                }
+
+                const hasValidSize = $inputs.toArray().some(input => input.value && parseInt(input.value) > 0);
+
+                if (!hasValidSize) {
+                    e.preventDefault();
+                    alert('Please enter at least one valid pack size (positive number).');
+                    return false;
+                }
+            });
+
+            // Auto-add pack size on page load if empty
+            if ($('#packSizesList .text-center.text-muted').length) {
+                addPackSize();
+            }
+
+            // Only allow numeric input
+            $(document).on('keypress', 'input[type="number"]', function(e) {
+                const charCode = e.which || e.keyCode;
+                if (charCode < 48 || charCode > 57) {
+                    e.preventDefault();
+                    return false;
+                }
+            });
+
+            // Prevent paste of non-numeric content
+            $(document).on('paste', 'input[type="number"]', function(e) {
+                const pastedData = e.originalEvent.clipboardData.getData('text');
+                if (!/^\d+$/.test(pastedData)) {
+                    e.preventDefault();
+                }
+            });
+        });
+    </script>
+</body>
+</html>
+

@@ -1,0 +1,10 @@
+.git
+.gitignore
+*.log
+*.out
+coverage.html
+.DS_Store
+.idea
+.vscode
+tmp/
+
