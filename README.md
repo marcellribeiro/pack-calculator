@@ -2,7 +2,7 @@
 
 A pack optimization system built with **Go** and **Gin framework** that calculates the most efficient pack distribution for customer orders, following strict business rules to minimize both items and pack count.
 
-**Live Demo:** 🚀 [Coming Soon - Will be deployed]
+**Live Demo:** 🚀 [https://pack-calculator.onrender.com](https://pack-calculator.onrender.com)
 
 ---
 
